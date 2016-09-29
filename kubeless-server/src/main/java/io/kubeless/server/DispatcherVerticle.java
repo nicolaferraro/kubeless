@@ -1,4 +1,4 @@
-package io.kubeless;
+package io.kubeless.server;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -49,14 +49,16 @@ public class DispatcherVerticle extends AbstractVerticle {
                     port = Integer.parseInt(hostPort.substring(hostPort.indexOf(":") + 1));
                 }
 
-                if(replicationControllerMap.get("datagrid")!=null) {
-                    ScaleOp.scale(replicationControllerMap.get("datagrid"), 1).setHandler(res -> {
-                        System.out.println("RES " + res.succeeded());
-                        if (!res.succeeded()) {
-                            res.cause().printStackTrace();
-                        }
-                    });
-                }
+                // doscale
+
+//                if(replicationControllerMap.get("datagrid")!=null) {
+//                    ScaleOp.scale(replicationControllerMap.get("datagrid"), 1).setHandler(res -> {
+//                        System.out.println("RES " + res.succeeded());
+//                        if (!res.succeeded()) {
+//                            res.cause().printStackTrace();
+//                        }
+//                    });
+//                }
 
                 HttpClientRequest proxiedRequest = client.get(port, host, req.uri(), res -> {
                     req.response().setStatusCode(res.statusCode());
