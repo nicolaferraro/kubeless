@@ -52,11 +52,11 @@ public class ModelChangeDetectorVerticle extends AbstractVerticle {
                 .subscribe(t -> {
                     KubelessModel desired = t._1;
                     KubelessModel comparison = Option.of(kubelessModels.get("pushed")).getOrElse(t._2);
-                    List<ReplicaChangeRequest> changes = desired.computeChanges(comparison).toList().map(ReplicaChangeRequest::new);
+                    List<KubelessReplicaChangeRequest> changes = desired.computeReplicaChanges(comparison);
 
                     kubelessModels.put("pushed", desired);
                     changes.forEach(change -> {
-                        eventBus.send("kubeless.changes", change);
+                        eventBus.publish("kubeless.changes", change);
                     });
                 });
 

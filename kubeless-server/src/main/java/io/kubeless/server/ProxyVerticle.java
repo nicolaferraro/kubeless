@@ -14,9 +14,9 @@ import io.vertx.core.streams.Pump;
 /**
  *
  */
-public class DispatcherVerticle extends AbstractVerticle {
+public class ProxyVerticle extends AbstractVerticle {
 
-    private static Logger logger = LoggerFactory.getLogger(DispatcherVerticle.class);
+    private static Logger logger = LoggerFactory.getLogger(ProxyVerticle.class);
 
     /**
      * Start the verticle.<p>

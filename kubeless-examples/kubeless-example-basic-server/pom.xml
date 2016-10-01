@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <artifactId>kubeless-examples</artifactId>
+        <groupId>io.kubeless</groupId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <artifactId>kubeless-example-basic-server</artifactId>
+
+    <properties>
+        <kubeless-domain>hello</kubeless-domain>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <mainClass>io.kubeless.examples.basic.server.App</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+
+
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>fabric8-maven-plugin</artifactId>
+                <version>${fabric8-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>resource</goal>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <resources>
+                        <annotations>
+                            <all>
+                                <kubeless.io-domain>${kubeless-domain}</kubeless.io-domain>
+                            </all>
+                        </annotations>
+                        <services>
+                            <service>
+                                <name>http-service</name>
+                                <headless>true</headless>
+                                <type>LoadBalancer</type>
+                                <ports>
+                                    <port>
+                                        <protocol>TCP</protocol>
+                                        <port>8080</port>
+                                        <targetPort>8080</targetPort>
+                                    </port>
+                                </ports>
+                            </service>
+                        </services>
+                    </resources>
+                </configuration>
+            </plugin>
+
+        </plugins>
+    </build>
+
+
+</project>

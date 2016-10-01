@@ -5,18 +5,18 @@ import javaslang.Tuple2;
 /**
  *
  */
-public class ReplicaChangeRequest {
+public class KubelessReplicaChangeRequest {
 
     private String controller;
 
     private int replicas;
 
-    public ReplicaChangeRequest(Tuple2<String, Integer> replicaInfo) {
+    public KubelessReplicaChangeRequest(Tuple2<String, Integer> replicaInfo) {
         this.controller = replicaInfo._1;
         this.replicas = replicaInfo._2;
     }
 
-    public ReplicaChangeRequest(String controller, int replicas) {
+    public KubelessReplicaChangeRequest(String controller, int replicas) {
         this.controller = controller;
         this.replicas = replicas;
     }
@@ -34,7 +34,7 @@ public class ReplicaChangeRequest {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
 
-        ReplicaChangeRequest that = (ReplicaChangeRequest) o;
+        KubelessReplicaChangeRequest that = (KubelessReplicaChangeRequest) o;
 
         if (replicas != that.replicas) return false;
         return controller != null ? controller.equals(that.controller) : that.controller == null;
@@ -51,7 +51,7 @@ public class ReplicaChangeRequest {
 
     @Override
     public String toString() {
-        final StringBuilder sb = new StringBuilder("ReplicaChangeRequest{");
+        final StringBuilder sb = new StringBuilder("KubelessReplicaChangeRequest{");
         sb.append("controller='").append(controller).append('\'');
         sb.append(", replicas=").append(replicas);
         sb.append('}');

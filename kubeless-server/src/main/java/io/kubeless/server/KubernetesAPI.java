@@ -20,6 +20,6 @@ public interface KubernetesAPI {
      * @param request the change request
      * @return an async future
      */
-    Future<Void> scale(ReplicaChangeRequest request);
+    Future<Void> scale(KubelessReplicaChangeRequest request);
 
 }

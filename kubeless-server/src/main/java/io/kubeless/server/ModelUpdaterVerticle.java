@@ -37,7 +37,7 @@ public class ModelUpdaterVerticle extends AbstractVerticle {
         EventBus eventBus = vertx.eventBus();
 
         eventBus.consumer("kubeless.changes").toObservable()
-                .map(m -> (ReplicaChangeRequest) m.body())
+                .map(m -> (KubelessReplicaChangeRequest) m.body())
                 .observeOn(Schedulers.io())
                 .map(kubernetesAPI::scale)
                 .flatMap(Future::setHandlerObservable)

@@ -48,7 +48,7 @@ public class ModelWatcherVerticle extends AbstractVerticle {
                                 .onErrorResumeNext(Observable.empty())
                         )
                 .distinctUntilChanged()
-                .doOnNext(model -> logger.info("Retrieved new model from Kubernetes: " + model + ". Updating the kubeless map."))
+                .doOnNext(model -> logger.info("Retrieved new model from Kubernetes: " + model))
                 .subscribe(model -> {
                     kubelessModels.put("current", model);
                     eventBus.publish("kubeless.model.current", model);

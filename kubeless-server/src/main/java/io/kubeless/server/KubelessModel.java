@@ -2,6 +2,10 @@ package io.kubeless.server;
 
 import java.util.function.Function;
 
+import io.vertx.core.shareddata.Shareable;
+
+import javaslang.Tuple;
+import javaslang.Tuple2;
 import javaslang.collection.List;
 import javaslang.collection.Map;
 import javaslang.collection.Set;
@@ -10,50 +14,28 @@ import javaslang.control.Option;
 /**
  *
  */
-public class KubelessModel {
+public class KubelessModel implements Shareable {
 
-    private Map<String, List<String>> services;
+    private Map<String, KubelessDomain> domains;
 
-    private Map<String, List<String>> controllers;
-
-    private Map<String, Integer> replicas;
-
-    public KubelessModel(Map<String, List<String>> services, Map<String, List<String>> controllers, Map<String, Integer> replicas) {
-        this.services = services;
-        this.controllers = controllers;
-        this.replicas = replicas;
+    public KubelessModel(Map<String, KubelessDomain> domains) {
+        this.domains = domains;
     }
 
-    public Map<String, List<String>> getServices() {
-        return services;
+    public List<KubelessReplicaChangeRequest> computeReplicaChanges(KubelessModel model) {
+        return replicaStatus(this).removeAll(replicaStatus(model)).map(KubelessReplicaChangeRequest::new);
     }
 
-    public Map<String, List<String>> getControllers() {
-        return controllers;
+    public KubelessModel withReplicas(String domain, int replicas) {
+        return new KubelessModel(domains.put(domain, domains.apply(domain).withReplicas(replicas)));
     }
 
-    public Map<String, Integer> getReplicas() {
-        return replicas;
+    private static List<Tuple2<String, Integer>> replicaStatus(KubelessModel model) {
+        return model.domains.values().map(d -> Tuple.of(d.getControllerName(), d.getControllerReplicas())).toList();
     }
 
-    public Set<String> getDomains() {
-        return services.keySet().union(controllers.keySet());
-    }
-
-    public List<String> getServices(String domain) {
-        return services.get(domain).getOrElse(List.empty());
-    }
-
-    public List<String> getControllers(String domain) {
-        return controllers.get(domain).getOrElse(List.empty());
-    }
-
-    public Option<Integer> getReplicas(String controller) {
-        return replicas.get(controller);
-    }
-
-    public Map<String, Integer> computeChanges(KubelessModel model) {
-        return this.replicas.toList().removeAll(model.replicas.toList()).toMap(Function.identity());
+    public Map<String, KubelessDomain> getDomains() {
+        return domains;
     }
 
     @Override
@@ -63,26 +45,18 @@ public class KubelessModel {
 
         KubelessModel that = (KubelessModel) o;
 
-        if (services != null ? !services.equals(that.services) : that.services != null) return false;
-        if (controllers != null ? !controllers.equals(that.controllers) : that.controllers != null) return false;
-        return replicas != null ? replicas.equals(that.replicas) : that.replicas == null;
-
+        return domains != null ? domains.equals(that.domains) : that.domains == null;
     }
 
     @Override
     public int hashCode() {
-        int result = services != null ? services.hashCode() : 0;
-        result = 31 * result + (controllers != null ? controllers.hashCode() : 0);
-        result = 31 * result + (replicas != null ? replicas.hashCode() : 0);
-        return result;
+        return domains != null ? domains.hashCode() : 0;
     }
 
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("KubelessModel{");
-        sb.append("services=").append(services);
-        sb.append(", controllers=").append(controllers);
-        sb.append(", replicas=").append(replicas);
+        sb.append("domains=").append(domains);
         sb.append('}');
         return sb.toString();
     }

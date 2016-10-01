@@ -6,7 +6,7 @@ import io.fabric8.kubernetes.api.model.Service;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.kubeless.server.KubelessModel;
 import io.kubeless.server.KubernetesAPI;
-import io.kubeless.server.ReplicaChangeRequest;
+import io.kubeless.server.KubelessReplicaChangeRequest;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.rxjava.core.Future;
@@ -45,7 +45,7 @@ public class KubernetesAPIImpl implements KubernetesAPI {
      * @return an async future
      */
     @Override
-    public Future<Void> scale(ReplicaChangeRequest request) {
+    public Future<Void> scale(KubelessReplicaChangeRequest request) {
         try {
             ReplicationController controller = client.replicationControllers().withName(request.getController()).get();
             ReplicationControllerSpec specs = controller.getSpec();

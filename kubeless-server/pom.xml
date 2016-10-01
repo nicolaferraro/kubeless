@@ -12,14 +12,6 @@
 
     <artifactId>kubeless-server</artifactId>
 
-    <properties>
-        <javaslang.version>2.0.3</javaslang.version>
-        <hibernate-validator.version>5.2.4.Final</hibernate-validator.version>
-        <kubernetes-client.version>1.4.7</kubernetes-client.version>
-        <spring-boot.version>1.4.1.RELEASE</spring-boot.version>
-        <vertx.version>3.3.3</vertx.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -76,6 +68,39 @@
                     </execution>
                 </executions>
             </plugin>
+
+
+            <plugin>
+                <groupId>io.fabric8</groupId>
+                <artifactId>fabric8-maven-plugin</artifactId>
+                <version>${fabric8-maven-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>resource</goal>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <resources>
+                        <services>
+                            <service>
+                                <name>${project.artifactId}</name>
+                                <type>LoadBalancer</type>
+                                <ports>
+                                    <port>
+                                        <protocol>TCP</protocol>
+                                        <port>8080</port>
+                                        <targetPort>8080</targetPort>
+                                    </port>
+                                </ports>
+                            </service>
+                        </services>
+                    </resources>
+                </configuration>
+            </plugin>
+
         </plugins>
     </build>
 
