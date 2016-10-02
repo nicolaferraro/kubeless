@@ -15,6 +15,7 @@ import javaslang.Tuple;
 import javaslang.collection.List;
 import javaslang.collection.Map;
 import javaslang.collection.Set;
+import javaslang.control.Option;
 
 /**
  * Builds a Kubeless model from the data retrieved from Kubernetes.
@@ -30,7 +31,8 @@ public class KubelessModelBuilder {
     private List<ReplicationController> controllers;
 
     // Common predicates
-    private Predicate<HasMetadata> kubelessObject = kubernetesObject -> kubernetesObject.getMetadata().getAnnotations().containsKey(KUBELESS_DOMAIN_ANNOTATION_KEY);
+    private Predicate<HasMetadata> kubelessMetadata = kubernetesObject -> kubernetesObject.getMetadata().getAnnotations().containsKey(KUBELESS_DOMAIN_ANNOTATION_KEY);
+    private Predicate<ReplicationController> kubelessRc = controller -> controller.getSpec().getTemplate().getMetadata().getAnnotations().containsKey(KUBELESS_DOMAIN_ANNOTATION_KEY);
     private Predicate<Integer> allowedPort = port -> List.of(80, 8080, 9000).contains(port.intValue());
     private Predicate<Service> exposedService = service -> List.ofAll(service.getSpec().getExternalIPs()).nonEmpty();
     private Predicate<Service> allowedService = service -> exposedService.test(service) && List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).nonEmpty();
@@ -42,12 +44,15 @@ public class KubelessModelBuilder {
 
     public KubelessModel build() {
 
-        Map<String, Service> modelServices = services.filter(allowedService.and(kubelessObject))
+        Map<String, Service> modelServices = services.filter(allowedService.and(kubelessMetadata))
                 .groupBy(s -> s.getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
                 .mapValues(serviceList -> serviceList.get());
 
-        Map<String, ReplicationController> modelControllers = controllers.filter(kubelessObject)
-                .groupBy(c -> c.getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
+        Map<String, ReplicationController> modelControllers = controllers.filter(kubelessRc.or(kubelessMetadata))
+                .groupBy(c ->
+                        Option.of(c.getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
+                            .getOrElse(c.getSpec().getTemplate().getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
+                )
                 .mapValues(controllerList -> controllerList.get());
 
         Set<String> domains = modelServices.keySet().intersect(modelControllers.keySet());
@@ -62,9 +67,9 @@ public class KubelessModelBuilder {
 
         String serviceName = service.getMetadata().getName();
 
-        String serviceHost = service.getSpec().getExternalIPs().get(0);
+        String serviceHost = "www.fantamiglia.net";// service.getSpec().getExternalIPs().get(0);
 
-        Integer servicePort = List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).get();
+        Integer servicePort = 80;// List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).get();
 
         String controllerName = controller.getMetadata().getName();
 

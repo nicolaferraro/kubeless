@@ -38,6 +38,10 @@ public class KubelessModel implements Shareable {
         return domains;
     }
 
+    public Option<KubelessDomain> getDomain(String domain) {
+        return domains.get(domain);
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;

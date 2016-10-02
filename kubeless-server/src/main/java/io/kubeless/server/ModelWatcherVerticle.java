@@ -41,7 +41,7 @@ public class ModelWatcherVerticle extends AbstractVerticle {
 
         EventBus eventBus = vertx.eventBus();
 
-        Observable.interval(0, 1, TimeUnit.SECONDS)
+        Observable.interval(0, 100, TimeUnit.MILLISECONDS)
                 .flatMap(t ->
                         kubernetesAPI.kubelessModel()
                                 .doOnError(e -> logger.error("Error while retrieving the model", e))
