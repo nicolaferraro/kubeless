@@ -1,5 +1,6 @@
 package io.kubeless.server;
 
+import io.kubeless.server.model.KubelessReplicaChangeRequest;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.rxjava.core.AbstractVerticle;
@@ -13,10 +14,10 @@ import org.springframework.stereotype.Component;
 import rx.schedulers.Schedulers;
 
 /**
- * Updates the model according to the desired state.
+ * Scales up the pods when they are requested.
  */
 @Component
-public class ModelUpdaterVerticle extends AbstractVerticle {
+public class DeployerVerticle extends AbstractVerticle {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
 

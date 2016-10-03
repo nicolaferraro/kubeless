@@ -2,6 +2,7 @@ package io.kubeless.server;
 
 import javax.annotation.PostConstruct;
 
+import io.kubeless.server.model.KubelessModel;
 import io.vertx.rxjava.core.Vertx;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,10 +26,13 @@ public class Server {
     private ModelChangeDetectorVerticle changeDetector;
 
     @Autowired
-    private ModelUpdaterVerticle updater;
+    private DeployerVerticle deployer;
 
     @Autowired
-    private DispatcherVerticle dispatcher;
+    private UndeployerVerticle undeployer;
+
+    @Autowired
+    private ProxyVerticle proxy;
 
 
     public static void main(String[] args) {
@@ -39,8 +43,9 @@ public class Server {
     public void deploy() throws Exception {
         ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(watcher);
         ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(changeDetector);
-        ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(updater);
-        ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(dispatcher);
+        ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(deployer);
+        ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(undeployer);
+        ((io.vertx.core.Vertx) vertx.getDelegate()).deployVerticle(proxy);
 
 
         Observable<KubelessModel> currentModel = vertx.eventBus().consumer("kubeless.model.current").toObservable()

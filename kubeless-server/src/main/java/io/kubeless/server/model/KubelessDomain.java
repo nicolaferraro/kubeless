@@ -1,4 +1,4 @@
-package io.kubeless.server;
+package io.kubeless.server.model;
 
 import io.vertx.core.shareddata.Shareable;
 

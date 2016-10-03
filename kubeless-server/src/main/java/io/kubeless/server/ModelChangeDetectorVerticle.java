@@ -1,22 +1,22 @@
 package io.kubeless.server;
 
+import io.kubeless.server.model.KubelessModel;
+import io.kubeless.server.model.KubelessReplicaChangeRequest;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.rxjava.core.AbstractVerticle;
 import io.vertx.rxjava.core.Vertx;
 import io.vertx.rxjava.core.eventbus.EventBus;
-import io.vertx.rxjava.core.shareddata.LocalMap;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javaslang.Tuple;
 import javaslang.collection.List;
-import javaslang.control.Option;
 import rx.Observable;
 
 /**
- * Detects changes in the desired state of the model.
+ * Detects changes in the desired state of the model and create corrective actions.
  */
 @Component
 public class ModelChangeDetectorVerticle extends AbstractVerticle {
@@ -37,8 +37,6 @@ public class ModelChangeDetectorVerticle extends AbstractVerticle {
     @Override
     public void start() throws Exception {
 
-        LocalMap<String, KubelessModel> kubelessModels = vertx.sharedData().getLocalMap("kubeless.model");
-
         EventBus eventBus = vertx.eventBus();
 
         Observable<KubelessModel> currentModel = eventBus.consumer("kubeless.model.current").toObservable()
@@ -51,13 +49,14 @@ public class ModelChangeDetectorVerticle extends AbstractVerticle {
         desiredModel.withLatestFrom(currentModel, Tuple::of)
                 .subscribe(t -> {
                     KubelessModel desired = t._1;
-                    KubelessModel comparison = Option.of(kubelessModels.get("pushed")).getOrElse(t._2);
-                    List<KubelessReplicaChangeRequest> changes = desired.computeReplicaChanges(comparison);
+                    KubelessModel comparison = t._2;
 
-                    kubelessModels.put("pushed", desired);
+                    List<KubelessReplicaChangeRequest> changes = desired.computeReplicaChanges(comparison);
                     changes.forEach(change -> {
                         eventBus.publish("kubeless.changes", change);
                     });
+
+                    eventBus.publish("kubeless.model.current", desired);
                 });
 
     }

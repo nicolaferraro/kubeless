@@ -1,6 +1,4 @@
-package io.kubeless.server;
-
-import java.util.function.Function;
+package io.kubeless.server.model;
 
 import io.vertx.core.shareddata.Shareable;
 
@@ -8,7 +6,6 @@ import javaslang.Tuple;
 import javaslang.Tuple2;
 import javaslang.collection.List;
 import javaslang.collection.Map;
-import javaslang.collection.Set;
 import javaslang.control.Option;
 
 /**

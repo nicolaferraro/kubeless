@@ -1,5 +1,7 @@
 package io.kubeless.server;
 
+import io.kubeless.server.model.KubelessModel;
+import io.kubeless.server.model.KubelessReplicaChangeRequest;
 import io.vertx.rxjava.core.Future;
 
 import rx.Observable;

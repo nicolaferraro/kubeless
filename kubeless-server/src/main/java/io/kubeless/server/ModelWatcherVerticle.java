@@ -37,11 +37,9 @@ public class ModelWatcherVerticle extends AbstractVerticle {
     @Override
     public void start() throws Exception {
 
-        LocalMap<String, KubelessModel> kubelessModels = vertx.sharedData().getLocalMap("kubeless.model");
-
         EventBus eventBus = vertx.eventBus();
 
-        Observable.interval(0, 100, TimeUnit.MILLISECONDS)
+        Observable.interval(0, 500, TimeUnit.MILLISECONDS)
                 .flatMap(t ->
                         kubernetesAPI.kubelessModel()
                                 .doOnError(e -> logger.error("Error while retrieving the model", e))
@@ -49,10 +47,7 @@ public class ModelWatcherVerticle extends AbstractVerticle {
                         )
                 .distinctUntilChanged()
                 .doOnNext(model -> logger.info("Retrieved new model from Kubernetes: " + model))
-                .subscribe(model -> {
-                    kubelessModels.put("current", model);
-                    eventBus.publish("kubeless.model.current", model);
-                });
+                .subscribe(model -> eventBus.publish("kubeless.model.current", model));
 
     }
 }

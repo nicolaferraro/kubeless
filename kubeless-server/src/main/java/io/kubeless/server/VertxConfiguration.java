@@ -2,14 +2,13 @@ package io.kubeless.server;
 
 import io.fabric8.kubernetes.client.DefaultKubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.kubeless.server.model.KubelessModel;
+import io.kubeless.server.model.KubelessReplicaChangeRequest;
 import io.kubeless.server.util.GenericJsonCodec;
-import io.netty.handler.codec.json.JsonObjectDecoder;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.eventbus.impl.CodecManager;
 import io.vertx.rxjava.core.RxHelper;
 import io.vertx.rxjava.core.Vertx;
 
-import org.springframework.boot.jackson.JsonObjectSerializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 

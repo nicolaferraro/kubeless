@@ -1,22 +1,42 @@
 package io.kubeless.server;
 
-import io.vertx.core.AbstractVerticle;
+import io.kubeless.server.model.KubelessDomain;
+import io.kubeless.server.model.KubelessModel;
 import io.vertx.core.Future;
-import io.vertx.core.http.HttpClient;
-import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpServer;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.core.shareddata.LocalMap;
-import io.vertx.core.shareddata.SharedData;
-import io.vertx.core.streams.Pump;
+import io.vertx.rx.java.ObservableHandler;
+import io.vertx.rx.java.RxHelper;
+import io.vertx.rxjava.core.AbstractVerticle;
+import io.vertx.rxjava.core.MultiMap;
+import io.vertx.rxjava.core.Vertx;
+import io.vertx.rxjava.core.eventbus.EventBus;
+import io.vertx.rxjava.core.http.HttpClient;
+import io.vertx.rxjava.core.http.HttpClientRequest;
+import io.vertx.rxjava.core.http.HttpClientResponse;
+import io.vertx.rxjava.core.http.HttpServer;
+import io.vertx.rxjava.core.http.HttpServerRequest;
+import io.vertx.rxjava.core.streams.Pump;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+
+import javaslang.Tuple;
+import javaslang.Tuple2;
+import javaslang.control.Option;
+import rx.Observable;
+import rx.subjects.BehaviorSubject;
 
 /**
  *
  */
+@Component
 public class ProxyVerticle extends AbstractVerticle {
 
     private static Logger logger = LoggerFactory.getLogger(ProxyVerticle.class);
+
+    @Autowired
+    private Vertx vertx;
 
     /**
      * Start the verticle.<p>
@@ -29,81 +49,82 @@ public class ProxyVerticle extends AbstractVerticle {
     @Override
     public void start(final Future<Void> startFuture) throws Exception {
 
-        HttpServer server = getVertx().createHttpServer();
+        EventBus eventBus = vertx.eventBus();
+        HttpServer server = vertx.createHttpServer();
+        HttpClient client = vertx.createHttpClient();
 
-        HttpClient client = getVertx().createHttpClient();
+        Observable<KubelessModel> modelStream = eventBus.consumer("kubeless.model.current").toObservable()
+                .map(m -> (KubelessModel) m.body());
 
-        SharedData sharedData = getVertx().sharedData();
+        BehaviorSubject<KubelessModel> modelChanges = BehaviorSubject.create();
+        modelStream.subscribe(modelChanges);
 
-        LocalMap<String, String> serviceMap = sharedData.getLocalMap("io.kubeless.services");
-        LocalMap<String, String> replicationControllerMap = sharedData.getLocalMap("io.kubeless.replication.controllers");
-
-        server.requestHandler(req -> {
-            try {
-                logger.info("Request arrived host=" + req.host() + ", uri=" + req.uri());
-                String hostPort = req.host();
-                String host = hostPort;
-                int port = 80;
-                if (hostPort != null && hostPort.indexOf(":") > 0) {
-                    host = hostPort.substring(0, hostPort.indexOf(":"));
-                    port = Integer.parseInt(hostPort.substring(hostPort.indexOf(":") + 1));
-                }
-
-                // doscale
-
-//                if(replicationControllerMap.get("datagrid")!=null) {
-//                    ScaleOp.scale(replicationControllerMap.get("datagrid"), 1).setHandler(res -> {
-//                        System.out.println("RES " + res.succeeded());
-//                        if (!res.succeeded()) {
-//                            res.cause().printStackTrace();
-//                        }
-//                    });
-//                }
-
-                HttpClientRequest proxiedRequest = client.get(port, host, req.uri(), res -> {
-                    req.response().setStatusCode(res.statusCode());
-                    req.response().headers().setAll(res.headers());
-
-
-//                    res.handler(data -> {
-//                        req.response().write(data);
-//                    });
-
-                    Pump.pump(res, req.response()).start();
-
-                    res.endHandler(v -> req.response().end());
-                });
-
-                proxiedRequest.connectionHandler(conn -> {
-                    conn.closeHandler((v) -> {
-                        req.connection().close();
+        server.requestStream().toObservable()
+                .map(request -> {
+                    logger.info("New request");
+                    // Publish all requested domains to a topic
+                    domain(request).forEach(domain -> {
+                        logger.info("Publishing request to domain " + domain);
+                        eventBus.publish("domain.requested", domain);
                     });
+                    return request;
+                })
+                .flatMap(request -> readyDomain(request, domain(request), modelChanges))
+                .subscribe(t -> {
+                    HttpServerRequest request = t._1;
+                    KubelessDomain domain = t._2;
+                    logger.info("Ready to dispath request to host=" + domain.getServiceHost() + ", port=" + domain.getServicePort() + ", uri=" + request.uri());
+                    serviceCall(client, domain.getServiceHost(), domain.getServicePort(), request.uri(), request.headers())
+                            .subscribe(res -> {
+                                logger.info("Got response from remote server");
+                                request.response().setStatusCode(res.statusCode());
+                                request.response().headers().setAll(res.headers());
+                                Pump.pump(res, request.response()).start();
+                                res.endHandler(end -> request.response().end());
+                            }, err -> {
+                                logger.warn("Got error from remote server", err);
+                                request.response().setStatusCode(500);
+                            });
                 });
 
-                proxiedRequest.exceptionHandler(e -> {
-                    e.printStackTrace();
-                    req.connection().close();
-                });
-
-                proxiedRequest.headers().setAll(req.headers());
-                req.handler(data -> {
-                    proxiedRequest.write(data);
-                });
-
-                req.endHandler((v) -> proxiedRequest.end());
-            } catch(Throwable t) {
-                t.printStackTrace();
-                req.response().setStatusCode(500).end();
+        server.listen(8080, status -> {
+            if (status.succeeded()) {
+                startFuture.complete();
+            } else {
+                startFuture.fail(status.cause());
             }
         });
 
-        server.listen(8080, status -> {
-           if(status.succeeded()) {
-               startFuture.complete();
-           } else {
-               startFuture.fail(status.cause());
-           }
-        });
-
     }
+
+    private Observable<Tuple2<HttpServerRequest, KubelessDomain>> readyDomain(HttpServerRequest request, Option<String> domainName, BehaviorSubject<KubelessModel> modelChanges) {
+        return modelChanges.map(model -> domainName.flatMap(dn -> model.getDomain(dn)))
+                .filter(Option::isDefined)
+                .map(Option::get)
+                .filter(domain -> domain.getControllerReplicas() > 0)
+                .map(domain -> Tuple.of(request, domain));
+    }
+
+    private Observable<HttpClientResponse> serviceCall(HttpClient client, String host, int port, String uri, MultiMap headers) {
+        ObservableHandler<HttpClientResponse> responseHandler = RxHelper.observableHandler();
+        HttpClientRequest req = client.get(port, host, uri, responseHandler.toHandler());
+        req.headers().addAll(headers.remove("Host").add("Host", host));
+        req.end();
+
+        return responseHandler;
+    }
+
+    private Option<String> domain(HttpServerRequest req) {
+        String host = req.host();
+        if (host != null && host.contains(".")) {
+            String domain = host.substring(0, host.indexOf("."));
+            return Option.of(domain);
+        } else if (host != null && host.contains(":")) {
+            String domain = host.substring(0, host.indexOf(":"));
+            return Option.of(domain);
+        }
+
+        return Option.of(host);
+    }
+
 }

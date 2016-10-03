@@ -6,8 +6,8 @@ import java.util.function.Predicate;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ReplicationController;
 import io.fabric8.kubernetes.api.model.Service;
-import io.kubeless.server.KubelessDomain;
-import io.kubeless.server.KubelessModel;
+import io.kubeless.server.model.KubelessDomain;
+import io.kubeless.server.model.KubelessModel;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
