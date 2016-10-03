@@ -69,6 +69,7 @@ public class UndeployerVerticle extends AbstractVerticle {
                 .map(usage -> usage.filter(controllerUsage -> controllerUsage._2 < System.currentTimeMillis() - 5000))
                 .flatMapIterable(usage -> usage.keySet())
                 .map(controller -> new KubelessReplicaChangeRequest(controller, 0))
+                .observeOn(Schedulers.io())
                 .map(kubernetesAPI::scale)
                 .flatMap(Future::setHandlerObservable)
                 .subscribe();
