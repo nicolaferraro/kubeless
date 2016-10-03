@@ -102,7 +102,8 @@ public class ProxyVerticle extends AbstractVerticle {
                 .filter(Option::isDefined)
                 .map(Option::get)
                 .filter(domain -> domain.getControllerReplicas() > 0)
-                .map(domain -> Tuple.of(request, domain));
+                .map(domain -> Tuple.of(request, domain))
+                .first();
     }
 
     private Observable<HttpClientResponse> serviceCall(HttpClient client, String host, int port, String uri, MultiMap headers) {

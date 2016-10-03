@@ -56,7 +56,8 @@ public class ModelChangeDetectorVerticle extends AbstractVerticle {
                         eventBus.publish("kubeless.changes", change);
                     });
 
-                    eventBus.publish("kubeless.model.current", desired);
+                    // Do not do this
+                    // eventBus.publish("kubeless.model.current", desired);
                 });
 
     }
