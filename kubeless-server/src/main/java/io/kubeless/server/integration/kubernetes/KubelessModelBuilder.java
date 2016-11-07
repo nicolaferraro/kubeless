@@ -1,4 +1,4 @@
-package io.kubeless.server.integration;
+package io.kubeless.server.integration.kubernetes;
 
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -51,7 +51,7 @@ public class KubelessModelBuilder {
         Map<String, ReplicationController> modelControllers = controllers.filter(kubelessRc.or(kubelessMetadata))
                 .groupBy(c ->
                         Option.of(c.getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
-                            .getOrElse(c.getSpec().getTemplate().getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
+                                .getOrElse(c.getSpec().getTemplate().getMetadata().getAnnotations().get(KUBELESS_DOMAIN_ANNOTATION_KEY))
                 )
                 .mapValues(controllerList -> controllerList.get());
 
@@ -67,9 +67,9 @@ public class KubelessModelBuilder {
 
         String serviceName = service.getMetadata().getName();
 
-        String serviceHost = "www.fantamiglia.net";// service.getSpec().getExternalIPs().get(0);
+        String serviceHost = "127.0.0.1";//service.getSpec().getExternalIPs().get(0);
 
-        Integer servicePort = 80;// List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).get();
+        Integer servicePort = 123;//List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).get();
 
         String controllerName = controller.getMetadata().getName();
 

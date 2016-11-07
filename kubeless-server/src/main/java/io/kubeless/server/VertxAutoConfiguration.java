@@ -6,6 +6,7 @@ import io.kubeless.server.model.KubelessModel;
 import io.kubeless.server.model.KubelessReplicaChangeRequest;
 import io.kubeless.server.util.GenericJsonCodec;
 import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.impl.FileResolver;
 import io.vertx.rxjava.core.RxHelper;
 import io.vertx.rxjava.core.Vertx;
 
@@ -19,10 +20,12 @@ import rx.plugins.RxJavaSchedulersHook;
  *
  */
 @Configuration
-public class VertxConfiguration {
+public class VertxAutoConfiguration {
 
     @Bean
     public Vertx vertx() {
+        System.setProperty("vertx.disableFileCaching", "true");
+        System.setProperty("vertx.disableFileCPResolving", "true");
         Vertx vertx = Vertx.vertx();
 
         // Hooks for RxJava schedulers

@@ -9,7 +9,7 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>kubeless-example-basic-server</artifactId>
+    <artifactId>kubeless-basic-server</artifactId>
 
     <properties>
         <kubeless-domain>hello</kubeless-domain>
@@ -52,8 +52,7 @@
                         </annotations>
                         <services>
                             <service>
-                                <name>http-service</name>
-                                <headless>true</headless>
+                                <name>${project.artifactId}</name>
                                 <type>LoadBalancer</type>
                                 <ports>
                                     <port>

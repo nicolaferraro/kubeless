@@ -1,5 +1,7 @@
 package io.kubeless.server;
 
+import io.kubeless.server.model.KubelessDomain;
+import io.kubeless.server.model.KubelessModel;
 import io.kubeless.server.model.KubelessReplicaChangeRequest;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -11,6 +13,9 @@ import io.vertx.rxjava.core.eventbus.EventBus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import javaslang.Tuple;
+import javaslang.control.Option;
+import rx.Observable;
 import rx.schedulers.Schedulers;
 
 /**
@@ -25,6 +30,9 @@ public class DeployerVerticle extends AbstractVerticle {
     private KubernetesAPI kubernetesAPI;
 
     @Autowired
+    private KubelessBusAPI kubelessBusAPI;
+
+    @Autowired
     private Vertx vertx;
 
     /**
@@ -35,13 +43,45 @@ public class DeployerVerticle extends AbstractVerticle {
     @Override
     public void start() throws Exception {
 
-        EventBus eventBus = vertx.eventBus();
+        Observable<KubelessModel> model = kubernetesAPI.kubelessModel();
 
-        eventBus.consumer("kubeless.changes").toObservable()
-                .map(m -> (KubelessReplicaChangeRequest) m.body())
+        Observable<String> domains = kubelessBusAPI.requestedDomains();
+
+        // When a domain with replicas=0 is requested, fire the scale up operation
+        domains.withLatestFrom(model, DeployContext::new)
+                .filter(ctx -> ctx.getDomainData().exists(dom -> dom.getControllerReplicas() == 0))
+                .doOnNext(ctx -> logger.info("Scaling up domain " + ctx.getDomain()))
+                .flatMapIterable(DeployContext::getDomainData)
+                .map(dom -> new KubelessReplicaChangeRequest(dom.getControllerName(), 1))
+                .doOnNext(chr -> logger.info("Scaling up controller " + chr))
                 .observeOn(Schedulers.io())
                 .map(kubernetesAPI::scale)
                 .flatMap(Future::setHandlerObservable)
                 .subscribe();
+    }
+
+    private static class DeployContext {
+
+        private String domain;
+
+        private KubelessModel model;
+
+        public DeployContext(String domain, KubelessModel model) {
+            this.domain = domain;
+            this.model = model;
+        }
+
+        public String getDomain() {
+            return domain;
+        }
+
+        public KubelessModel getModel() {
+            return model;
+        }
+
+        public Option<KubelessDomain> getDomainData() {
+            return model.getDomain(this.domain);
+        }
+
     }
 }
