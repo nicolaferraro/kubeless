@@ -11,9 +11,11 @@ import io.fabric8.kubernetes.client.Watcher;
 import io.kubeless.server.model.KubelessModel;
 import io.kubeless.server.KubernetesAPI;
 import io.kubeless.server.model.KubelessReplicaChangeRequest;
+import io.kubeless.server.util.Vertexizer;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.rxjava.core.Future;
+import io.vertx.rxjava.core.Vertx;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -33,6 +35,9 @@ public class KubernetesAPIImpl implements KubernetesAPI {
     @Autowired
     private KubernetesClient client;
 
+    @Autowired
+    private Vertx vertx;
+
     private Logger logger = LoggerFactory.getLogger(getClass());
 
     private Observable<KubelessModel> kubelessModel;
@@ -51,7 +56,7 @@ public class KubernetesAPIImpl implements KubernetesAPI {
 
         logger.info("Kubeless Model BehaviourSubject created");
 
-        this.kubelessModel = subject.distinctUntilChanged();
+        this.kubelessModel = Vertexizer.cleanBehaviour(vertx, subject.distinctUntilChanged());
     }
 
     @Override

@@ -27,9 +27,6 @@ public class KubelessServer {
     @Autowired
     private ProxyVerticle proxy;
 
-    @Autowired
-    private BugVerticle bug;
-
 
     public static void main(String[] args) {
         SpringApplication.run(KubelessServer.class, args);
@@ -42,9 +39,6 @@ public class KubelessServer {
         RxHelper.deployVerticle(vertx, deployer);
         RxHelper.deployVerticle(vertx, undeployer);
         RxHelper.deployVerticle(vertx, proxy);
-
-        RxHelper.deployVerticle(vertx, bug);
-
     }
 
 }

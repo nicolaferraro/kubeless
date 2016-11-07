@@ -67,9 +67,9 @@ public class KubelessModelBuilder {
 
         String serviceName = service.getMetadata().getName();
 
-        String serviceHost = "127.0.0.1";//service.getSpec().getExternalIPs().get(0);
+        String serviceHost = service.getSpec().getExternalIPs().get(0);
 
-        Integer servicePort = 123;//List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).get();
+        Integer servicePort = List.ofAll(service.getSpec().getPorts()).map(sp -> sp.getPort()).filter(allowedPort).get();
 
         String controllerName = controller.getMetadata().getName();
 

@@ -5,18 +5,16 @@ import java.util.function.Supplier;
 
 import io.kubeless.server.model.KubelessDomain;
 import io.kubeless.server.model.KubelessModel;
+import io.kubeless.server.util.Vertexizer;
 import io.vertx.core.Future;
 import io.vertx.core.http.HttpClientOptions;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
-import io.vertx.rx.java.ObservableHandler;
-import io.vertx.rx.java.RxHelper;
 import io.vertx.rxjava.core.AbstractVerticle;
 import io.vertx.rxjava.core.Vertx;
 import io.vertx.rxjava.core.buffer.Buffer;
 import io.vertx.rxjava.core.http.HttpClient;
 import io.vertx.rxjava.core.http.HttpClientRequest;
-import io.vertx.rxjava.core.http.HttpClientResponse;
 import io.vertx.rxjava.core.http.HttpServer;
 import io.vertx.rxjava.core.http.HttpServerRequest;
 
@@ -26,7 +24,6 @@ import org.springframework.stereotype.Component;
 import javaslang.control.Option;
 import rx.Observable;
 import rx.subjects.PublishSubject;
-import rx.subjects.SerializedSubject;
 
 /**
  *
@@ -53,12 +50,8 @@ public class ProxyVerticle extends AbstractVerticle {
 
         Observable<KubelessModel> modelChanges = kubernetesAPI.kubelessModel();
 
-        // Creating a vertx aware delayer to overcome https://github.com/eclipse/vert.x/issues/1702
-        Supplier<Observable<Boolean>> timeoutSupplier = () -> {
-            SerializedSubject<Boolean, Boolean> ser = PublishSubject.<Boolean>create().toSerialized();
-            vertx.timerStream(5000).handler(t -> ser.onNext(true));
-            return ser.startWith(false);
-        };
+        // A general purpose timeout observable
+        Supplier<Observable<Boolean>> timeoutSupplier = () -> Vertexizer.cleanBehaviour(vertx, Observable.just(true).delay(7, TimeUnit.SECONDS).startWith(false));
 
         // All different channels for managing requests
         PublishSubject<RequestContext> allRequests = PublishSubject.create();
@@ -66,7 +59,6 @@ public class ProxyVerticle extends AbstractVerticle {
         PublishSubject<RequestContext> requestsWithTimeout = PublishSubject.create();
         PublishSubject<RequestContext> requestsWithTargetReady = PublishSubject.create();
         PublishSubject<RequestContext> requestsWithTargetNotReady = PublishSubject.create();
-
 
         /**
          * Intermediate steps
@@ -78,7 +70,6 @@ public class ProxyVerticle extends AbstractVerticle {
                 .map(RequestContext::new)
                 .map(ctx -> ctx.withDomain(domain(ctx.getRequest())))
                 .doOnNext(ctx -> logger.info("Request for uri " + ctx.getRequest().absoluteURI() + " related to domain: " + ctx.getDomain()))
-                .map(ctx -> ctx.withRequestData(Observable.from(ctx.request.toObservable().toBlocking().toIterable()))) // prepare the buffer
                 .subscribe(allRequests);
 
         // Push requests without domain into the 404 bucket
@@ -107,6 +98,7 @@ public class ProxyVerticle extends AbstractVerticle {
 
         // Wait for the pod to become ready or time out
         requestsWithTargetNotReady
+                .doOnNext(ctx -> ctx.getRequest().pause()) // Pause the request
                 .doOnNext(ctx -> logger.info("Waiting for the domain " + ctx.domain.get() + " to become ready"))
                 .flatMap(ctx -> Observable.combineLatest(timeoutSupplier.get().map(ctx::withTimeout), modelChanges, RequestContext::withModel)
                         .filter(c -> c.targetDomainReady() || c.isTimedOut())
@@ -129,45 +121,47 @@ public class ProxyVerticle extends AbstractVerticle {
 
         // Handle requests without domain
         requestsWithUnknownDomain
-            .doOnNext(ctx -> logger.info("Sending a 404 error to the request for uri " + ctx.getRequest().absoluteURI()))
-            .subscribe(ctx -> {
-                ctx.getRequest()
-                    .response()
-                    .setStatusMessage("Unknown domain or target container not found")
-                    .setStatusCode(404)
-                    .setChunked(true)
-                    .write("<html>"
-                            + "<head>"
-                            + "<title>Kubeless - Not Found (404)</title>"
-                            + "</head>"
-                            + "<body>"
-                            + "<h1>Kubeless - Not Found (404)</h1>"
-                            + "<h2>Unknown domain or target container not found</h2>"
-                            + "</body>"
-                            + "</html>")
-                    .end();
-            });
+                .doOnNext(ctx -> logger.info("Sending a 404 error to the request for uri " + ctx.getRequest().absoluteURI()))
+                .subscribe(ctx -> {
+                    ctx.getRequest()
+                            .resume()
+                            .response()
+                            .setStatusMessage("Unknown domain or target container not found")
+                            .setStatusCode(404)
+                            .setChunked(true)
+                            .write("<html>"
+                                    + "<head>"
+                                    + "<title>Kubeless - Not Found (404)</title>"
+                                    + "</head>"
+                                    + "<body>"
+                                    + "<h1>Kubeless - Not Found (404)</h1>"
+                                    + "<h2>Unknown domain or target container not found</h2>"
+                                    + "</body>"
+                                    + "</html>")
+                            .end();
+                });
 
         // Handle request that timed out
         requestsWithTimeout
-            .doOnNext(ctx -> logger.info("Sending a 504 error to the request for uri " + ctx.getRequest().absoluteURI()))
-            .subscribe(ctx -> {
-                ctx.getRequest()
-                        .response()
-                        .setStatusMessage("Timeout while waiting for the container to scale up")
-                        .setStatusCode(504)
-                        .setChunked(true)
-                        .write("<html>"
-                                + "<head>"
-                                + "<title>Kubeless - Gateway Timeout (504)</title>"
-                                + "</head>"
-                                + "<body>"
-                                + "<h1>Kubeless - Gateway Timeout (504)</h1>"
-                                + "<h2>Timeout while waiting for the container to scale up</h2>"
-                                + "</body>"
-                                + "</html>")
-                        .end();
-            });
+                .doOnNext(ctx -> logger.info("Sending a 504 error to the request for uri " + ctx.getRequest().absoluteURI()))
+                .subscribe(ctx -> {
+                    ctx.getRequest()
+                            .resume()
+                            .response()
+                            .setStatusMessage("Timeout while waiting for the container to scale up")
+                            .setStatusCode(504)
+                            .setChunked(true)
+                            .write("<html>"
+                                    + "<head>"
+                                    + "<title>Kubeless - Gateway Timeout (504)</title>"
+                                    + "</head>"
+                                    + "<body>"
+                                    + "<h1>Kubeless - Gateway Timeout (504)</h1>"
+                                    + "<h2>Timeout while waiting for the container to scale up</h2>"
+                                    + "</body>"
+                                    + "</html>")
+                            .end();
+                });
 
         // Handle requests that can be forwarded
         requestsWithTargetReady
@@ -197,10 +191,10 @@ public class ProxyVerticle extends AbstractVerticle {
 
         KubelessDomain domain = ctx.getDomainData().get();
         HttpServerRequest originalReq = ctx.getRequest();
+        originalReq.resume();
 
         HttpClientRequest proxiedReq = client.get(domain.getServicePort(), domain.getServiceHost(), uri(originalReq));
-        ctx.getRequestData().subscribe(proxiedReq::write);
-        //originalReq.handler(proxiedReq::write);
+        originalReq.handler(proxiedReq::write);
         originalReq.endHandler(end -> proxiedReq.end());
 
         proxiedReq.handler(res -> {
@@ -246,8 +240,6 @@ public class ProxyVerticle extends AbstractVerticle {
 
         private HttpServerRequest request;
 
-        private Observable<Buffer> requestData;
-
         private Option<String> domain;
 
         private KubelessModel model;
@@ -258,16 +250,15 @@ public class ProxyVerticle extends AbstractVerticle {
             this.request = request;
         }
 
-        public RequestContext(HttpServerRequest request, Observable<Buffer> requestData, Option<String> domain, KubelessModel model, boolean timedOut) {
+        public RequestContext(HttpServerRequest request, Option<String> domain, KubelessModel model, boolean timedOut) {
             this.request = request;
-            this.requestData = requestData;
             this.domain = domain;
             this.model = model;
             this.timedOut = timedOut;
         }
 
         protected RequestContext copy() {
-            RequestContext copy = new RequestContext(this.request, this.requestData, this.domain, this.model, this.timedOut);
+            RequestContext copy = new RequestContext(this.request, this.domain, this.model, this.timedOut);
             return copy;
         }
 
@@ -286,12 +277,6 @@ public class ProxyVerticle extends AbstractVerticle {
         public RequestContext withTimeout(boolean timedOut) {
             RequestContext copy = copy();
             copy.timedOut = timedOut;
-            return copy;
-        }
-
-        public RequestContext withRequestData(Observable<Buffer> requestData) {
-            RequestContext copy = copy();
-            copy.requestData = requestData;
             return copy;
         }
 
@@ -339,9 +324,6 @@ public class ProxyVerticle extends AbstractVerticle {
             return timedOut;
         }
 
-        public Observable<Buffer> getRequestData() {
-            return requestData;
-        }
     }
 
 }
